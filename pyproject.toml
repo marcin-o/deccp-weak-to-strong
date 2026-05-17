@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "deccp-w2s"
+version = "0.1.0"
+description = "Baseline pipeline for Weak-to-Strong Steering for DeCCP propaganda mitigation."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "accelerate",
+    "bitsandbytes",
+    "datasets",
+    "pandas",
+    "torch",
+    "tqdm",
+    "transformers",
+]
+
+[project.scripts]
+deccp-w2s = "deccp_w2s.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

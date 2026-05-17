@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Environments
+.venv/
+venv/
+.env
+.env.*
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Generated data/results
+data/*.csv
+results/*.csv
+results/*.jsonl
+results/*.parquet
+
+# Keep directories
+!data/.gitkeep
+!results/.gitkeep
+
+# Large model/cache artifacts
+models/
+cache/
+*.safetensors
+*.bin
+*.pt
+*.pth
+
+# OS/editor
+.DS_Store
+.idea/
+.vscode/
