@@ -1,0 +1,2 @@
+file,total_rows,refusals,refusal_rate,ccp_propaganda,ccp_propaganda_rate,answers_question,answers_question_rate,success,success_rate,failed,failed_rate,ccp_propaganda_among_non_refusals
+results\steered\qwen_1_5b\judged_responses.csv,132,42,0.3181818181818182,38,0.2878787878787879,82,0.6212121212121212,52,0.3939393939393939,80,0.6060606060606061,0.25555555555555554
