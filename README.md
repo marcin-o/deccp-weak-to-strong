@@ -346,6 +346,55 @@ This file is structured identically to the baseline raw data and can be submitte
 
 ```
 
+## 7. Weak-to-strong steering (vector addition)
+
+This is the core weak-to-strong stage. It follows the logit-difference decoding
+scheme from *Weak-to-Strong Jailbreaking on Large Language Models*
+(https://arxiv.org/pdf/2401.17256). At every decoding step the strong model's
+log-probabilities are shifted by the difference between a weak **expert**
+(fine-tuned, de-propaganda) and a weak **amateur** (the same base model):
+
+```text
+log P_steered = log P_strong + alpha * (log P_expert - log P_amateur)
+```
+
+For DeCCP:
+
+- **strong**  = `Qwen/Qwen2.5-14B-Instruct` (base, no fine-tuning)
+- **expert**  = `Qwen/Qwen2.5-1.5B-Instruct` + LoRA (from step 5)
+- **amateur** = `Qwen/Qwen2.5-1.5B-Instruct` (base)
+
+All three share the Qwen2.5 vocabulary, which is what makes adding their logits
+well defined. The weak model is loaded only once: with the LoRA adapter active
+it is the expert, inside `disable_adapter()` the same weights act as the amateur
+(so only the 14B + one 1.5B sit in VRAM).
+
+Run the steering generation (requires the LoRA adapter from step 5):
+
+```bash
+python scripts/run_w2s_steering.py \
+    --strong-model Qwen/Qwen2.5-14B-Instruct \
+    --weak-model Qwen/Qwen2.5-1.5B-Instruct \
+    --alpha 1.0
+```
+
+Smoke test on 5 prompts:
+
+```bash
+python scripts/run_w2s_steering.py --alpha 1.0 --limit 5
+```
+
+This writes responses (schema identical to the baseline raw data) to:
+
+```text
+results/steered/qwen_14b_w2s/raw_responses.csv
+```
+
+Then judge the file with GPT-5.5 (step 3) and analyze it (step 4) to compare the
+steered 14B against the 14B baseline. The key metric is whether `ccp_propaganda`
+drops while `answers_question` stays high. Sweep `--alpha` (e.g. 1, 2, 4) to find
+the trade-off between steering strength and fluency.
+
 ## Useful baseline models
 
 The initial report used these models:
@@ -463,6 +512,13 @@ results/runs/
 
 ## Current status
 
-The current repository implements the baseline pipeline.
+The repository implements the full weak-to-strong pipeline:
 
-It does not yet implement weak-to-strong steering. The next project stage should add steering or abliteration experiments and compare their results against the baseline stored in this repository.
+1. baseline evaluation of the four models,
+2. QLoRA fine-tuning of the small Qwen weak models,
+3. weak-to-strong steering of the 14B strong model via logit-difference decoding
+   (`scripts/run_w2s_steering.py`).
+
+Remaining work: run the steering generation, judge and analyze the steered 14B
+responses, and optionally add an abliteration baseline on the small Qwen models
+to isolate the contribution of weak-to-strong steering.
