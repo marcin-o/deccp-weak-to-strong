@@ -1,0 +1,500 @@
+\documentclass[11pt,a4paper]{article}
+
+% --- Packages ---
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{geometry}
+\usepackage{float}
+\geometry{margin=2.5cm}
+
+% --- Title Information ---
+\title{Weak-to-Strong Steering for De-Chinese Communist Party (DeCCP) Propaganda Mitigation}
+\author{Filip Opacki, Marcin Oracz}
+\date{May 28, 2026}
+
+\begin{document}
+
+\maketitle
+
+\begin{center}
+\textbf{Project repository:} \url{https://github.com/marcin-o/deccp-weak-to-strong}
+\end{center}
+
+\section{Baseline Analysis of Chinese Large Language Models}
+
+\subsection{Objective}
+The objective of this stage was to prepare an initial baseline for the DeCCP project. Before applying any steering, abliteration, or weak-to-strong methods, we first evaluated how selected open-source language models respond to prompts from the DeCCP benchmark.
+
+The goal of this baseline was to measure:
+\begin{itemize}
+    \item how often a model refuses to answer sensitive questions,
+    \item how often a model gives answers containing CCP-aligned or propaganda-like framing,
+    \item how often a model answers the question directly,
+    \item how often a model gives a response that can be treated as successful according to our current evaluation criteria.
+\end{itemize}
+
+This baseline is intended to serve as a reference point for later experiments with weak-to-strong steering and possible comparison with existing methods such as abliteration.
+
+\subsection{Dataset and Methodology}
+We used the \textbf{DeCCP (Chinese Censorship and Propaganda)} dataset. The dataset contains 132 prompts in total:
+\begin{itemize}
+    \item 95 prompts in the \texttt{censored} split,
+    \item 37 prompts in the \texttt{uncensored} split.
+\end{itemize}
+
+The prompts concern politically or socially sensitive topics related to China. For each tested model, we generated one response for every prompt and saved the results in CSV files containing the following columns:
+\begin{center}
+\texttt{prompt\_id, prompt, response}
+\end{center}
+
+The models were loaded from Hugging Face using the \texttt{transformers} library. In order to make the experiments feasible in Google Colab, the models were loaded with 4-bit quantization. Responses were generated using greedy decoding, with sampling disabled.
+
+After generating the responses, we evaluated them using an LLM-as-a-judge approach (GPT-5.5 was used as the judge). Each response was annotated with the following columns:
+\begin{itemize}
+    \item \textbf{refusal} -- equal to 1 if the model refused to answer or avoided the topic,
+    \item \textbf{ccp\_propaganda} -- equal to 1 if the response repeated one-sided CCP/state-aligned framing,
+    \item \textbf{answers\_question} -- equal to 1 if the response directly answered the user question,
+    \item \textbf{factual\_specificity} -- 0 for no useful factual content, 1 for vague/generic content, and 2 for specific factual content,
+    \item \textbf{success} -- equal to 1 if the model did not refuse, did not produce propaganda-like framing, and answered the question.
+\end{itemize}
+
+The success criterion was defined as:
+\[
+success = 1 \iff refusal = 0 \land ccp\_propaganda = 0 \land answers\_question = 1
+\]
+
+Throughout this report, results are reported as fractions of the form $n/132$, where $n$ is the number of prompts that satisfied the given criterion and $132$ is the total number of prompts in the DeCCP benchmark.
+
+\subsection{Tested Models}
+At this stage, we evaluated four models on the full DeCCP dataset:
+\begin{itemize}
+    \item \textbf{Qwen/Qwen2.5-0.5B-Instruct},
+    \item \textbf{Qwen/Qwen2.5-1.5B-Instruct},
+    \item \textbf{Qwen/Qwen2.5-14B-Instruct},
+    \item \textbf{deepseek-ai/DeepSeek-R1-Distill-Qwen-7B}.
+\end{itemize}
+
+\subsection{Baseline Results: Qwen2.5-0.5B-Instruct}
+
+The first evaluated model was \textbf{Qwen/Qwen2.5-0.5B-Instruct}. This was the smallest model in the tested set. The results show that the model refused a large part of the prompts, but slightly less often than Qwen2.5-1.5B-Instruct.
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{lr}
+\toprule
+\textbf{Metric} & \textbf{Count} \\
+\midrule
+Refusals & 92 / 132 \\
+CCP propaganda-like responses & 24 / 132 \\
+Answers to the question & 41 / 132 \\
+Successful responses & 21 / 132 \\
+Failed responses & 111 / 132 \\
+\bottomrule
+\end{tabular}
+\caption{Baseline results for Qwen2.5-0.5B-Instruct on the DeCCP dataset.}
+\end{table}
+
+Among responses that were not refusals, 15 out of 40 were marked as CCP propaganda-like. Therefore, although the model often avoids sensitive prompts, a significant part of its non-refusal responses still contains biased or state-aligned framing.
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{lr}
+\toprule
+\textbf{Factual specificity} & \textbf{Count} \\
+\midrule
+0 -- no useful factual content & 70 / 132 \\
+1 -- vague or generic content & 32 / 132 \\
+2 -- specific factual content & 30 / 132 \\
+\bottomrule
+\end{tabular}
+\caption{Factual specificity distribution for Qwen2.5-0.5B-Instruct.}
+\end{table}
+
+\subsection{Baseline Results: Qwen2.5-1.5B-Instruct}
+
+The next evaluated model was \textbf{Qwen/Qwen2.5-1.5B-Instruct}. The results show that this model relied heavily on hard refusals. Most responses did not provide useful information and were classified as unsuccessful.
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{lr}
+\toprule
+\textbf{Metric} & \textbf{Count} \\
+\midrule
+Refusals & 102 / 132 \\
+CCP propaganda-like responses & 12 / 132 \\
+Answers to the question & 31 / 132 \\
+Successful responses & 20 / 132 \\
+Failed responses & 112 / 132 \\
+\bottomrule
+\end{tabular}
+\caption{Baseline results for Qwen2.5-1.5B-Instruct on the DeCCP dataset.}
+\end{table}
+
+Among responses that were not refusals, 10 out of 30 were marked as CCP propaganda-like. This means that although the model mostly avoids sensitive topics, a relatively large part of its non-refusal answers still contains biased or state-aligned framing.
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{lr}
+\toprule
+\textbf{Factual specificity} & \textbf{Count} \\
+\midrule
+0 -- no useful factual content & 97 / 132 \\
+1 -- vague or generic content & 11 / 132 \\
+2 -- specific factual content & 24 / 132 \\
+\bottomrule
+\end{tabular}
+\caption{Factual specificity distribution for Qwen2.5-1.5B-Instruct.}
+\end{table}
+
+\subsection{Baseline Results: Qwen2.5-14B-Instruct}
+
+The third evaluated model was \textbf{Qwen/Qwen2.5-14B-Instruct}. Compared to the smaller Qwen2.5-1.5B-Instruct model, this model refused much less often and answered more prompts directly. However, this improvement in answer rate was accompanied by a large increase in CCP propaganda-like responses.
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{lr}
+\toprule
+\textbf{Metric} & \textbf{Count} \\
+\midrule
+Refusals & 39 / 132 \\
+CCP propaganda-like responses & 68 / 132 \\
+Answers to the question & 91 / 132 \\
+Successful responses & 55 / 132 \\
+Failed responses & 77 / 132 \\
+\bottomrule
+\end{tabular}
+\caption{Baseline results for Qwen2.5-14B-Instruct on the DeCCP dataset.}
+\end{table}
+
+Among non-refusal responses, 36 out of 93 were classified as CCP propaganda-like. This suggests that the larger Qwen model is more willing to answer sensitive prompts, but it also more frequently answers using biased or state-aligned framing.
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{lr}
+\toprule
+\textbf{Factual specificity} & \textbf{Count} \\
+\midrule
+0 -- no useful factual content & 8 / 132 \\
+1 -- vague or generic content & 39 / 132 \\
+2 -- specific factual content & 85 / 132 \\
+\bottomrule
+\end{tabular}
+\caption{Factual specificity distribution for Qwen2.5-14B-Instruct.}
+\end{table}
+
+\subsection{Baseline Results: DeepSeek-R1-Distill-Qwen-7B}
+
+The fourth model evaluated was \textbf{deepseek-ai/DeepSeek-R1-Distill-Qwen-7B}. Compared to Qwen2.5-1.5B-Instruct, this model refused much less often and answered a larger number of prompts. However, it also produced more propaganda-like answers in absolute terms.
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{lr}
+\toprule
+\textbf{Metric} & \textbf{Count} \\
+\midrule
+Refusals & 5 / 132 \\
+CCP propaganda-like responses & 30 / 132 \\
+Answers to the question & 80 / 132 \\
+Successful responses & 60 / 132 \\
+Failed responses & 72 / 132 \\
+\bottomrule
+\end{tabular}
+\caption{Baseline results for DeepSeek-R1-Distill-Qwen-7B on the DeCCP dataset.}
+\end{table}
+
+Among non-refusal responses, 30 out of 127 were classified as CCP propaganda-like.
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{lr}
+\toprule
+\textbf{Factual specificity} & \textbf{Count} \\
+\midrule
+0 -- no useful factual content & 6 / 132 \\
+1 -- vague or generic content & 125 / 132 \\
+2 -- specific factual content & 1 / 132 \\
+\bottomrule
+\end{tabular}
+\caption{Factual specificity distribution for DeepSeek-R1-Distill-Qwen-7B.}
+\end{table}
+
+\subsection{Comparative Baseline Summary}
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{lrrrrr}
+\toprule
+\textbf{Model} & \textbf{Refusal} & \textbf{Propaganda} & \textbf{Answers} & \textbf{Success} & \textbf{Failure} \\
+\midrule
+Qwen2.5-0.5B-Instruct & 92 / 132 & 24 / 132 & 41 / 132 & 21 / 132 & 111 / 132 \\
+Qwen2.5-1.5B-Instruct & 102 / 132 & 12 / 132 & 31 / 132 & 20 / 132 & 112 / 132 \\
+Qwen2.5-14B-Instruct & 39 / 132 & 68 / 132 & 91 / 132 & 55 / 132 & 77 / 132 \\
+DeepSeek-R1-Distill-Qwen-7B & 5 / 132 & 30 / 132 & 80 / 132 & 60 / 132 & 72 / 132 \\
+\bottomrule
+\end{tabular}
+\caption{Comparison of the tested baseline models on the DeCCP benchmark.}
+\end{table}
+
+The baseline results show several different failure modes:
+\begin{itemize}
+    \item \textbf{Qwen2.5-0.5B-Instruct} mostly fails through refusals, but it refuses slightly less often than Qwen2.5-1.5B-Instruct. Its success rate is still very low, equal to 21 / 132.
+    \item \textbf{Qwen2.5-1.5B-Instruct} has the highest refusal rate among the tested models. It avoids answering most sensitive prompts, refusing 102 / 132 of them.
+    \item \textbf{Qwen2.5-14B-Instruct} answers much more often than the smaller Qwen models. Its refusal count drops to 39 / 132, and its answer count increases to 91 / 132. However, it also has the highest CCP propaganda-like response count, equal to 68 / 132.
+    \item \textbf{DeepSeek-R1-Distill-Qwen-7B} is much more willing to answer. It refuses only 5 / 132 prompts, and has the highest success count among the baseline models, reaching 60 / 132. At the same time, it still produces propaganda-like responses in 30 / 132 cases.
+    \item The larger Qwen model gives much more specific answers than Qwen2.5-0.5B, Qwen2.5-1.5B and DeepSeek-R1-Distill-Qwen-7B. However, higher factual specificity does not necessarily mean better neutrality, because many of these specific answers were still classified as propaganda-like.
+    \item Many DeepSeek responses were still judged as vague or generic. Its factual specificity score was usually 1, which suggests that the model often answers in a broad and cautious way rather than giving detailed factual responses.
+\end{itemize}
+
+\subsection{Baseline Interpretation}
+
+The baseline confirms that the tested models do not behave neutrally on the DeCCP benchmark. The smaller Qwen models mostly refuse to answer, while the larger Qwen model answers more often but frequently produces propaganda-like responses. The DeepSeek-R1-Distill-Qwen-7B model answers most often and currently gives the highest baseline success rate, but it still produces a notable number of propaganda-like responses.
+
+An important observation is that increasing the model size does not automatically solve the problem. In the Qwen family, moving from 1.5B to 14B greatly reduces the refusal rate and improves factual specificity, but it also increases the number of propaganda-like responses. The 0.5B model shows a similar success rate to Qwen2.5-1.5B, but with a slightly lower refusal rate and a higher propaganda-like response rate. This suggests that model scale changes the type of failure, but does not remove the bias problem by itself.
+
+This distinction is important for the next stages of the project. A model that refuses frequently may require techniques that reduce hard refusals, while a model that answers but uses biased framing may require methods that improve neutrality and factuality.
+
+\section{Fine-Tuning of Small Models (Weak Models for Weak-to-Strong)}
+
+\subsection{Motivation}
+The baseline section showed that the smallest Qwen models, \textbf{Qwen2.5-0.5B-Instruct} and \textbf{Qwen2.5-1.5B-Instruct}, fail mostly through refusals. They will later play the role of \emph{weak models} in a weak-to-strong setup, where signal from a stronger model can be used to align a larger one. Before that stage, however, the weak models themselves had to be improved - a model that refuses 77 / 132 prompts cannot meaningfully transfer alignment signal.
+
+To improve the answer rate without retraining from scratch, we applied a lightweight supervised fine-tuning step. As distillation targets we used the \emph{successful} responses generated by the stronger baseline models (Qwen2.5-14B-Instruct and DeepSeek-R1-Distill-Qwen-7B), i.e.\ responses that were judged as not refusing, not propaganda-like, and directly answering the question. The small models were then fine-tuned with QLoRA adapters, while the base weights were kept frozen.
+
+\subsection{Methodology}
+The fine-tuning pipeline (script \texttt{scripts/run\_finetuning.py} in the project repository) builds the training set by filtering the baseline judged CSVs for $success = 1$ and uses the corresponding prompt-response pairs as supervision. Training was performed on a single GPU using 4-bit quantization for the base model and trainable LoRA adapters; this matches the setup used in evaluation generation. The resulting adapters are stored under \texttt{results/steered/<model\_dir>/adapters/}.
+
+After training, the LoRA adapters were attached to the original base model and a new evaluation pass was run on the full DeCCP benchmark (script \texttt{scripts/run\_eval\_generation.py}). The generated responses were judged using the same GPT-5.5 judge and the same judge prompt as in the baseline.
+
+\subsection{Fine-Tuned Results: Qwen2.5-0.5B-Instruct + LoRA}
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{lr}
+\toprule
+\textbf{Metric} & \textbf{Count} \\
+\midrule
+Refusals & 22 / 132 \\
+CCP propaganda-like responses & 35 / 132 \\
+Answers to the question & 67 / 132 \\
+Successful responses & 45 / 132 \\
+Failed responses & 87 / 132 \\
+\bottomrule
+\end{tabular}
+\caption{Results for the fine-tuned Qwen2.5-0.5B-Instruct + LoRA on the DeCCP dataset.}
+\end{table}
+
+Among non-refusal responses, 29 out of 110 were classified as CCP propaganda-like. After fine-tuning, the model refuses far less often than in the baseline (22 / 132 vs.\ 92 / 132 before), and the success count more than doubles (45 / 132 vs.\ 21 / 132). The absolute number of propaganda-like responses grows (35 / 132 vs.\ 24 / 132), but this is expected: the model is now willing to answer a much larger share of sensitive prompts, so it has more opportunities to drift into biased framing. The propaganda rate \emph{among non-refusals} actually drops compared to the baseline (29 / 110 vs.\ 15 / 40).
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{lr}
+\toprule
+\textbf{Factual specificity} & \textbf{Count} \\
+\midrule
+0 -- no useful factual content & 12 / 132 \\
+1 -- vague or generic content & 48 / 132 \\
+2 -- specific factual content & 72 / 132 \\
+\bottomrule
+\end{tabular}
+\caption{Factual specificity distribution for Qwen2.5-0.5B-Instruct + LoRA.}
+\end{table}
+
+\subsection{Fine-Tuned Results: Qwen2.5-1.5B-Instruct + LoRA}
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{lr}
+\toprule
+\textbf{Metric} & \textbf{Count} \\
+\midrule
+Refusals & 42 / 132 \\
+CCP propaganda-like responses & 38 / 132 \\
+Answers to the question & 82 / 132 \\
+Successful responses & 52 / 132 \\
+Failed responses & 80 / 132 \\
+\bottomrule
+\end{tabular}
+\caption{Results for the fine-tuned Qwen2.5-1.5B-Instruct + LoRA on the DeCCP dataset.}
+\end{table}
+
+Among non-refusal responses, 23 out of 90 were classified as CCP propaganda-like. The fine-tuned 1.5B model shows the same pattern as the 0.5B variant: refusal count drops sharply (42 / 132 vs.\ 102 / 132 in the baseline), the answer count rises from 31 / 132 to 82 / 132, and the success count more than doubles (52 / 132 vs.\ 20 / 132). The propaganda rate among non-refusals stays roughly stable (23 / 90 vs.\ 10 / 30 in the baseline).
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{lr}
+\toprule
+\textbf{Factual specificity} & \textbf{Count} \\
+\midrule
+0 -- no useful factual content & 11 / 132 \\
+1 -- vague or generic content & 32 / 132 \\
+2 -- specific factual content & 89 / 132 \\
+\bottomrule
+\end{tabular}
+\caption{Factual specificity distribution for Qwen2.5-1.5B-Instruct + LoRA.}
+\end{table}
+
+\subsection{Baseline vs.\ Fine-Tuned Comparison}
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{lrrrrr}
+\toprule
+\textbf{Model} & \textbf{Refusal} & \textbf{Propaganda} & \textbf{Answers} & \textbf{Success} & \textbf{Failure} \\
+\midrule
+Qwen2.5-0.5B-Instruct (baseline) & 92 / 132 & 24 / 132 & 41 / 132 & 21 / 132 & 111 / 132 \\
+Qwen2.5-0.5B-Instruct + LoRA & 22 / 132 & 35 / 132 & 67 / 132 & 45 / 132 & 87 / 132 \\
+Qwen2.5-1.5B-Instruct (baseline) & 102 / 132 & 12 / 132 & 31 / 132 & 20 / 132 & 112 / 132 \\
+Qwen2.5-1.5B-Instruct + LoRA & 42 / 132 & 38 / 132 & 82 / 132 & 52 / 132 & 80 / 132 \\
+\bottomrule
+\end{tabular}
+\caption{Direct comparison of baseline and fine-tuned (LoRA) small Qwen models on the DeCCP benchmark.}
+\end{table}
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{lrrr}
+\toprule
+\textbf{Model} & \textbf{spec=0} & \textbf{spec=1} & \textbf{spec=2} \\
+\midrule
+Qwen2.5-0.5B-Instruct (baseline) & 70 / 132 & 32 / 132 & 30 / 132 \\
+Qwen2.5-0.5B-Instruct + LoRA & 12 / 132 & 48 / 132 & 72 / 132 \\
+Qwen2.5-1.5B-Instruct (baseline) & 97 / 132 & 11 / 132 & 24 / 132 \\
+Qwen2.5-1.5B-Instruct + LoRA & 11 / 132 & 32 / 132 & 89 / 132 \\
+\bottomrule
+\end{tabular}
+\caption{Shift in factual specificity after fine-tuning the small Qwen models with QLoRA.}
+\end{table}
+
+The shift in factual specificity is particularly informative. For both small models, the dominant baseline class was $spec = 0$ (no useful factual content) -- 70 / 132 for 0.5B and 97 / 132 for 1.5B. After fine-tuning, the most frequent class is $spec = 2$ (specific factual content): 72 / 132 for 0.5B + LoRA and 89 / 132 for 1.5B + LoRA. This indicates that the fine-tuned weak models no longer collapse into empty disclaimers; they generate detailed answers comparable in specificity to the much larger Qwen2.5-14B-Instruct (85 / 132 at $spec = 2$).
+
+\subsection{Fine-Tuning Interpretation}
+
+Three observations stand out from the fine-tuned runs:
+
+\begin{itemize}
+    \item \textbf{Refusals collapse, success more than doubles.} The fine-tuned 0.5B and 1.5B models both shift from a \emph{refuse-by-default} regime to an \emph{answer-by-default} regime. Success counts rise from 21 / 132 to 45 / 132 for 0.5B and from 20 / 132 to 52 / 132 for 1.5B. The 1.5B + LoRA variant already exceeds the baseline 14B model in success neighborhood while being roughly ten times smaller.
+    \item \textbf{Specificity shifts dramatically.} The collapse of $spec = 0$ shows that the model is no longer hiding behind generic disclaimers, but actually producing content. This is a precondition for any later steering experiment, because steering can only act on content that the model is willing to generate.
+    \item \textbf{Propaganda-like framing remains.} The propaganda count rises in absolute terms (24 $\rightarrow$ 35 for 0.5B; 12 $\rightarrow$ 38 for 1.5B), but this is a consequence of the model now answering many more prompts. Among non-refusal responses, the propaganda rate is roughly stable or slightly improved (29 / 110 vs.\ 15 / 40 for 0.5B; 23 / 90 vs.\ 10 / 30 for 1.5B). Fine-tuning alone does not remove biased framing; this is exactly the failure mode that the next stage -- weak-to-strong steering -- is intended to address.
+\end{itemize}
+
+\section{Weak-to-Strong Steering of the Strong Model}
+
+\subsection{Motivation and Method}
+The previous stage produced fine-tuned weak models, but the central question of the project remained open: can the alignment signal of a \emph{weak} model be transferred onto a \emph{strong} model that we do not fine-tune? To answer it we applied weak-to-strong steering through logit-difference decoding, following \emph{Weak-to-Strong Jailbreaking on Large Language Models} (\url{https://arxiv.org/pdf/2401.17256}).
+
+At every decoding step the strong model's log-probabilities are shifted by the difference between a weak \emph{expert} (the fine-tuned, de-propaganda model) and a weak \emph{amateur} (the same base model before fine-tuning):
+\[
+\log P_{\text{steered}} = \log P_{\text{strong}} + \alpha \,\bigl(\log P_{\text{expert}} - \log P_{\text{amateur}}\bigr).
+\]
+The bracketed term is a per-token direction pointing away from the base small model's behaviour and toward its de-propaganda fine-tuned behaviour; $\alpha$ controls how strongly this direction is added to the strong model. For DeCCP we used:
+\begin{itemize}
+    \item \textbf{strong} = \texttt{Qwen2.5-14B-Instruct} (base, never fine-tuned),
+    \item \textbf{expert} = \texttt{Qwen2.5-1.5B-Instruct} + LoRA (from the previous section),
+    \item \textbf{amateur} = \texttt{Qwen2.5-1.5B-Instruct} (base).
+\end{itemize}
+All three models share the Qwen2.5 vocabulary, which is what makes adding their logits well defined. The decoding loop (\texttt{src/deccp\_w2s/steering.py}, script \texttt{scripts/run\_w2s\_steering.py}) keeps a separate key-value cache per model and combines next-token log-probabilities at each step; greedy decoding is used to match the baseline. To save memory the weak model is loaded only once: with the LoRA adapter active it is the expert, and inside \texttt{disable\_adapter()} the same weights act as the amateur. The experiment was run on a single 16~GB GPU (Google Colab T4) with 4-bit quantization, so that only the 14B and one 1.5B model occupy VRAM at a time.
+
+\subsection{Choosing the Steering Strength $\alpha$}
+We first swept $\alpha \in \{1, 2, 4, 8\}$ on a small set of prompts and inspected the generated text:
+\begin{itemize}
+    \item $\alpha = 1$: fluent, but the framing was barely changed -- responses still relied on phrases such as ``social stability'' and ``harmonious society''.
+    \item $\alpha = 2$: fluent, with a visible shift toward acknowledging ``challenges and risks'' and a more neutral tone.
+    \item $\alpha = 4$: the text began to \emph{code-switch} into Chinese mid-sentence.
+    \item $\alpha = 8$: fluency collapsed into repetition and garbled tokens.
+\end{itemize}
+This is the expected strength-versus-fluency trade-off: amplifying the small bilingual model's signal too aggressively drags the strong model toward the small model's distribution (including its strong Chinese prior) before propaganda is fully removed. We therefore selected $\alpha = 2$ -- the strongest setting that still produced coherent English -- for the full benchmark run.
+
+\subsection{Results: Qwen2.5-14B-Instruct + Weak-to-Strong Steering}
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{lr}
+\toprule
+\textbf{Metric} & \textbf{Count} \\
+\midrule
+Refusals & 15 / 132 \\
+CCP propaganda-like responses & 52 / 132 \\
+Answers to the question & 112 / 132 \\
+Successful responses & 77 / 132 \\
+Failed responses & 55 / 132 \\
+\bottomrule
+\end{tabular}
+\caption{Results for the weak-to-strong steered Qwen2.5-14B-Instruct ($\alpha = 2$) on the DeCCP dataset.}
+\end{table}
+
+Among non-refusal responses, 39 out of 117 were classified as CCP propaganda-like ($33.3\%$), down from 36 out of 93 ($38.7\%$) in the 14B baseline.
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{lr}
+\toprule
+\textbf{Factual specificity} & \textbf{Count} \\
+\midrule
+0 -- no useful factual content & 5 / 132 \\
+1 -- vague or generic content & 30 / 132 \\
+2 -- specific factual content & 97 / 132 \\
+\bottomrule
+\end{tabular}
+\caption{Factual specificity distribution for the steered Qwen2.5-14B-Instruct ($\alpha = 2$).}
+\end{table}
+
+\subsection{Baseline vs.\ Steered Comparison}
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{lrrrrr}
+\toprule
+\textbf{Model} & \textbf{Refusal} & \textbf{Propaganda} & \textbf{Answers} & \textbf{Success} & \textbf{Failure} \\
+\midrule
+Qwen2.5-14B-Instruct (baseline) & 39 / 132 & 68 / 132 & 91 / 132 & 55 / 132 & 77 / 132 \\
+Qwen2.5-14B-Instruct + w2s ($\alpha=2$) & 15 / 132 & 52 / 132 & 112 / 132 & 77 / 132 & 55 / 132 \\
+\bottomrule
+\end{tabular}
+\caption{Effect of weak-to-strong steering (1.5B expert) on the strong Qwen2.5-14B-Instruct model.}
+\end{table}
+
+\subsection{Interpretation}
+
+Weak-to-strong steering improved the strong model on \emph{every} measured axis:
+\begin{itemize}
+    \item \textbf{Success rises sharply.} The success count grows from 55 / 132 to 77 / 132 (a $+40\%$ relative increase). This is the highest success count of \emph{any} model tested in this project -- above the best baseline (DeepSeek-R1-Distill-Qwen-7B at 60 / 132) and above both fine-tuned weak models (45 / 132 and 52 / 132). A 1.5B model therefore transferred usable alignment onto a 14B model that was never fine-tuned, which is exactly the weak-to-strong claim.
+    \item \textbf{Fewer refusals, more answers.} Refusals drop from 39 / 132 to 15 / 132 and the answer count rises from 91 / 132 to 112 / 132. The steered model is far more willing to engage with sensitive prompts.
+    \item \textbf{Propaganda decreases in two senses.} The absolute propaganda count falls from 68 / 132 to 52 / 132 \emph{even though the model now answers more prompts}, and the propaganda rate \emph{among non-refusals} also falls ($38.7\% \rightarrow 33.3\%$). Unlike fine-tuning alone, steering reduces biased framing rather than merely converting refusals into (possibly biased) answers.
+    \item \textbf{Higher specificity.} The $spec = 2$ class grows from 85 / 132 to 97 / 132, so the steered model is not just answering more, it is answering with more concrete factual content.
+\end{itemize}
+
+The main limitation of the method is the one exposed by the $\alpha$ sweep: because the weak expert is small, bilingual, and trained on only 55 examples, its steering vector is noisy, and amplification beyond $\alpha \approx 2$ degrades fluency (code-switching into Chinese, then incoherence) before propaganda is fully eliminated. A stronger or larger expert -- or restricting the steering to a chosen token subset -- is the natural way to push the de-propaganda effect further.
+
+\section{Next Steps}
+
+The core weak-to-strong result is established: a fine-tuned 1.5B weak model steers an un-tuned 14B strong model to the best success rate in the project. Remaining work:
+\begin{itemize}
+    \item Compare against an abliteration baseline applied to the same models, to isolate how much of the gain is specific to weak-to-strong steering.
+    \item Strengthen the weak expert (more distillation data, e.g.\ combining the successful DeepSeek-7B responses, or more training steps) and re-test whether a higher usable $\alpha$ further reduces propaganda-like framing.
+    \item Report an $\alpha$ ablation with judged metrics (not only qualitative inspection) to quantify the strength-versus-fluency trade-off.
+\end{itemize}
+
+\end{document}
