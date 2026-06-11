@@ -1,2 +1,2 @@
 file,total_rows,refusals,refusal_rate,ccp_propaganda,ccp_propaganda_rate,answers_question,answers_question_rate,success,success_rate,failed,failed_rate,ccp_propaganda_among_non_refusals
-results/steered/qwen_7b_w2s/judged_responses.csv,132,15,0.11363636363636363,52,0.3939393939393939,112,0.8484848484848485,77,0.5833333333333334,55,0.41666666666666663,0.3333333333333333
+results/steered/qwen_7b_w2s/w2s_qwen7b_responses_evaluated.csv,132,16,0.12121212121212122,58,0.4393939393939394,99,0.75,68,0.5151515151515151,64,0.48484848484848486,0.3706896551724138
